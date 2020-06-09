@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -11,6 +13,7 @@ class CardsPage extends StatefulWidget {
 
 class _CardsPageState extends State<CardsPage> {
   CardListViewModel viewModel;
+  ScrollController scrollController;
 
   bool get _isInHighlightMode => viewModel.areAnyCardsHighlighted();
 
@@ -20,6 +23,7 @@ class _CardsPageState extends State<CardsPage> {
     super.initState();
 
     viewModel = CardListViewModel();
+    scrollController = ScrollController();
   }
 
   @override
@@ -37,6 +41,7 @@ class _CardsPageState extends State<CardsPage> {
           children: <Widget>[
             Flexible(
               child: ListView.builder(
+                controller: scrollController,
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -141,49 +146,168 @@ class _CardsPageState extends State<CardsPage> {
         context: context,
         backgroundColor: Colors.transparent,
         builder: (context) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Container(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15))
-                ),
-                child: Text("Create a new card", textAlign: TextAlign.center, style: Theme.of(context).textTheme.headline6.copyWith(color: Colors.white),),
-              ),
-              Expanded(
-                child: Container(color: Colors.white, child: Column(children: <Widget>[
-                  TextField(
-                    decoration: InputDecoration(hintText: "Front card text..."),
-                  ),
-                  TextField(
-                    decoration: InputDecoration(hintText: "Back card text..."),
-                  ),
-                  SizedBox(height: 16,),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: <Widget>[
-                    FlatButton(
-                      onPressed: (){
-                        print("Cancelling creation!");
-                      },
-                      child: Icon(Icons.close, color: Theme.of(context).colorScheme.error,),
-                    ),
-                    FlatButton(
-                      onPressed: () => print("Creating!"),
-                      child: Icon(
-                        Icons.check,
-                        color: Theme.of(context).accentColor,
-                      ),
-                    )
-                  ],)
-                ],)),
-              )
-            ],
+          return CreateCard(
+            onCancel: () {
+              Navigator.pop(context);
+            },
+            onCreate: (createCardResult) {
+              Navigator.pop(context);
+
+              setState(() {
+                viewModel.createNewCard(createCardResult.frontCardText,
+                    createCardResult.backCardText);
+              });
+
+              Timer(Duration(milliseconds: 200), (){
+                setState((){
+                  scrollController.animateTo(
+                      scrollController.position.maxScrollExtent,
+                      duration: Duration(seconds: 1),
+                      curve: Curves.ease);
+                });
+              });
+            },
           );
         });
   }
+}
+
+class CreateCard extends StatefulWidget {
+  final Function onCancel;
+  final ValueSetter<CreateCardResult> onCreate;
+
+  const CreateCard({
+    this.onCancel,
+    this.onCreate,
+  });
+
+  @override
+  _CreateCardState createState() => _CreateCardState();
+}
+
+class _CreateCardState extends State<CreateCard> {
+  String frontCardText;
+  bool frontCardValidationFailed;
+
+  String backCardText;
+  bool backCardValidationFailed;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+
+    frontCardValidationFailed = false;
+    backCardValidationFailed = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Container(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+              borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(15), topRight: Radius.circular(15))),
+          child: Text(
+            "Create a new card",
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .headline6
+                .copyWith(color: Colors.white),
+          ),
+        ),
+        Expanded(
+          child: Container(
+              color: Colors.white,
+              child: Column(
+                children: <Widget>[
+                  TextField(
+                    decoration: InputDecoration(
+                        hintText: "Front card text...",
+                        errorText: frontCardValidationFailed
+                            ? "Enter text for the front of the card"
+                            : null),
+                    onChanged: (newValue) {
+                      frontCardText = newValue;
+                    },
+                  ),
+                  TextField(
+                    decoration: InputDecoration(
+                        hintText: "Back card text...",
+                        errorText: backCardValidationFailed
+                            ? "Enter text for the back of the card"
+                            : null),
+                    onChanged: (newValue) {
+                      backCardText = newValue;
+                    },
+                  ),
+                  SizedBox(
+                    height: 16,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: <Widget>[
+                      FlatButton(
+                        onPressed: widget.onCancel,
+                        child: Icon(
+                          Icons.close,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      FlatButton(
+                        onPressed: () {
+                          if (widget.onCreate == null) {
+                            return;
+                          }
+
+                          frontCardValidationFailed = false;
+                          backCardValidationFailed = false;
+
+                          if (frontCardText == null ||
+                              frontCardText.trim().isEmpty) {
+                            frontCardValidationFailed = true;
+                          }
+
+                          if (backCardText == null ||
+                              backCardText.trim().isEmpty) {
+                            backCardValidationFailed = true;
+                          }
+
+                          if (frontCardValidationFailed ||
+                              backCardValidationFailed) {
+                            setState(() {});
+                            return;
+                          }
+
+                          widget.onCreate(CreateCardResult(
+                              frontCardText: frontCardText,
+                              backCardText: backCardText));
+                        },
+                        child: Icon(
+                          Icons.check,
+                          color: Theme.of(context).accentColor,
+                        ),
+                      )
+                    ],
+                  )
+                ],
+              )),
+        )
+      ],
+    );
+  }
+}
+
+class CreateCardResult {
+  final String frontCardText;
+  final String backCardText;
+
+  CreateCardResult({@required this.frontCardText, @required this.backCardText});
 }
 
 class CardListItem extends StatelessWidget {
@@ -314,6 +438,11 @@ class CardListViewModel {
 
   void deleteSelectedCards() {
     _items.removeWhere((element) => element.isHighlighted);
+  }
+
+  void createNewCard(String frontText, String backText) {
+    _items.add(
+        CardListItemViewModel(Card(frontText: frontText, backText: backText)));
   }
 }
 
