@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'cards_page.dart';
+import 'game_page.dart';
+
 class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -11,8 +14,12 @@ class HomePage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
-              NavigationButton(),
-              NavigationButton(),
+              NavigationButton(text: "Cards", onPressed: (){
+                Navigator.pushNamed(context, CardsPage.ROUTE);
+              }),
+              NavigationButton(text: "Play", onPressed: (){
+                Navigator.pushNamed(context, GamePage.ROUTE);
+              }),
           ],),
         ),
       ),
@@ -27,6 +34,11 @@ class HomePage extends StatelessWidget {
 }
 
 class NavigationButton extends StatelessWidget {
+  final String text;
+  final Function onPressed;
+
+  const NavigationButton({this.text, this.onPressed});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -36,49 +48,28 @@ class NavigationButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text("Card list", style: TextStyle(color: Colors.purple, fontSize: 24),),
-              Icon(Icons.arrow_forward, color: Colors.black)
+              Text(text ?? "", style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 24),),
+              Icon(Icons.arrow_forward, color: Colors.grey.shade600)
             ],
           ),
           padding: EdgeInsets.all(32),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: <Color>[ Colors.white, Colors.grey.shade300, ]),
-            borderRadius:BorderRadius.circular(5.0)
-//          border: Border(left: BorderSide(color: Colors.purple, width: 8))
+            gradient: LinearGradient(colors: <Color>[ Colors.white, Colors.grey.shade200, ]),
+            borderRadius: BorderRadius.circular(5.0)
+            //border: Border(left: BorderSide(color: Colors.purple, width: 8))
 
           ),
         ),
-        elevation: 8.0,
+        elevation: 4,
+        disabledColor: Colors.transparent,
         padding: EdgeInsets.zero,
-        onPressed: onButtonPressed,
+        onPressed: (){
+          if(onPressed != null) {
+            onPressed();
+          }
+        },
       ),
     );
-  }
-
-  void onButtonPressed() {
-
   }
 }
 
-
-/*
- FlatButton(
-      onPressed: onButtonPressed,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5.0)),
-      padding: EdgeInsets.all(64),
-      child: Text("Card list", style: TextStyle(color: Colors.black, fontSize: 24),),
-    );
- */
-
-/*
-Container(
-        decoration: BoxDecoration(
-          color: Colors.purple,
-          borderRadius: BorderRadius.circular(8.0)
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(64.0),
-          child: Text("Card list", style: TextStyle(color: Colors.white),),
-        ),
-      ),
- */

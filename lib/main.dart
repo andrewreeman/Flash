@@ -13,13 +13,21 @@ class FlashApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
-        primaryColor: Colors.purple,
-        accentColor: Colors.greenAccent
+        primaryColor: Colors.teal,
+        primaryColorDark: Colors.teal.shade800,
+        accentColor: Colors.orangeAccent,
+        appBarTheme: AppBarTheme(
+          textTheme: TextTheme(
+            headline1: TextStyle(color: Colors.white)
+          )
+        )
+//        appBarTheme: Theme.of(context).appBarTheme.copyWith(te)
+
       ),
       routes: {
         "/" : (context) => HomePage(),
-        "/game" : (context) => GamePage(),
-        "/cards" : (context) => CardsPage()
+        GamePage.ROUTE : (context) => GamePage(),
+        CardsPage.ROUTE : (context) => CardsPage()
 
       },
     );
