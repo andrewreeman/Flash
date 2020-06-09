@@ -65,23 +65,25 @@ class _CardsPageState extends State<CardsPage> {
               ),
             ),
             GestureDetector(
-                onTap: () {
-                  print("Bottom safe zone container tapped!");
-                  setState(() {
-                    viewModel.turnOffAllHighlighted();
-                  });
-                },
-                //behavior: HitTestBehavior.translucent,
-                child: Container(
-                  height: 80,
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 38, top: 16),
-                    child: Text(getBottomHelpText(), style: TextStyle(color: Theme.of(context).primaryColor),),
+              onTap: () {
+                print("Bottom safe zone container tapped!");
+                setState(() {
+                  viewModel.turnOffAllHighlighted();
+                });
+              },
+              //behavior: HitTestBehavior.translucent,
+              child: Container(
+                height: 80,
+                color: Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 38, top: 16),
+                  child: Text(
+                    getBottomHelpText(),
+                    style: Theme.of(context).textTheme.bodyText1,
                   ),
-
-                ), // need to actually give this a color so that it has content
-              )
+                ),
+              ), // need to actually give this a color so that it has content
+            )
           ],
         ),
       ),
@@ -90,68 +92,97 @@ class _CardsPageState extends State<CardsPage> {
             ? Theme.of(context).colorScheme.error
             : Theme.of(context).accentColor,
         child: Icon(
-          _isInHighlightMode ?  Icons.delete_forever : Icons.add,
+          _isInHighlightMode ? Icons.delete_forever : Icons.add,
           color: Colors.white,
         ),
         onPressed: () {
           if (_isInHighlightMode) {
-            showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                      title: Container(
-                        color: Theme.of(context).colorScheme.error,
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Text(
-                              'Delete',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                      content: Text(
-                        'Delete selected cards?',
-                      ),
-                      actions: <Widget>[
-                        FlatButton(
-                          onPressed: (){
-                            print("User said no");
-                            Navigator.of(context).pop();
-                            setState(() {
-                              viewModel.turnOffAllHighlighted();
-                            });
-                          },
-                          child: Text("Cancel"),
-                        ),
-                        FlatButton(
-                          onPressed: (){
-                            print("User said yes");
-                            Navigator.of(context).pop();
-                            setState(() {
-                              viewModel.deleteSelectedCards();
-                            });
-                          },
-                          child: Text("Delete", style: TextStyle(color: Theme.of(context).colorScheme.error),),
-                        )
-                      ],
-                      titlePadding: EdgeInsets.zero);
-                });
+            askDeleteSelected(context);
+          } else {
+            showAddCard(context);
           }
-          ;
         },
       ),
     );
   }
 
+  void askDeleteSelected(BuildContext context) {
+    showDialog(
+        context: context,
+        builder: (context) {
+          return DeleteDialog(
+            onPositiveButtonTapped: () {
+              print("User said no");
+              Navigator.of(context).pop();
+              setState(() {
+                viewModel.turnOffAllHighlighted();
+              });
+            },
+            onNegativeButtonTapped: () {
+              Navigator.of(context).pop();
+              setState(() {
+                viewModel.deleteSelectedCards();
+              });
+            },
+          );
+        });
+  }
+
   String getBottomHelpText() {
-    if(_isInHighlightMode) {
+    if (_isInHighlightMode) {
       return "Tap here to unselect everything";
-    }
-    else {
+    } else {
       return "Tap a card to view and edit";
     }
+  }
+
+  void showAddCard(BuildContext context) {
+    showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15))
+                ),
+                child: Text("Create a new card", textAlign: TextAlign.center, style: Theme.of(context).textTheme.headline6.copyWith(color: Colors.white),),
+              ),
+              Expanded(
+                child: Container(color: Colors.white, child: Column(children: <Widget>[
+                  TextField(
+                    decoration: InputDecoration(hintText: "Front card text..."),
+                  ),
+                  TextField(
+                    decoration: InputDecoration(hintText: "Back card text..."),
+                  ),
+                  SizedBox(height: 16,),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: <Widget>[
+                    FlatButton(
+                      onPressed: (){
+                        print("Cancelling creation!");
+                      },
+                      child: Icon(Icons.close, color: Theme.of(context).colorScheme.error,),
+                    ),
+                    FlatButton(
+                      onPressed: () => print("Creating!"),
+                      child: Icon(
+                        Icons.check,
+                        color: Theme.of(context).accentColor,
+                      ),
+                    )
+                  ],)
+                ],)),
+              )
+            ],
+          );
+        });
   }
 }
 
@@ -301,4 +332,46 @@ class Card {
   final String backText;
 
   Card({@required this.frontText, @required this.backText});
+}
+
+class DeleteDialog extends StatelessWidget {
+  final Function onPositiveButtonTapped;
+  final Function onNegativeButtonTapped;
+
+  const DeleteDialog(
+      {this.onPositiveButtonTapped, this.onNegativeButtonTapped});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+        title: Container(
+          color: Theme.of(context).colorScheme.error,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+        content: Text(
+          'Delete selected cards?',
+        ),
+        actions: <Widget>[
+          FlatButton(
+            onPressed: onPositiveButtonTapped,
+            child: Text("Cancel"),
+          ),
+          FlatButton(
+            onPressed: onNegativeButtonTapped,
+            child: Text(
+              "Delete",
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          )
+        ],
+        titlePadding: EdgeInsets.zero);
+  }
 }
