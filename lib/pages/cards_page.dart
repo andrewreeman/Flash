@@ -1,8 +1,12 @@
 import 'dart:async';
-
+import 'package:flash/models/card_list_view_model.dart';
+import 'package:flash/models/create_card_result.dart';
+import 'package:flash/widgets/card_list.dart';
+import 'package:flash/widgets/delete_card_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+
+import 'create_card_page.dart';
 
 class CardsPage extends StatefulWidget {
   static const String ROUTE = "/cards";
@@ -29,111 +33,135 @@ class _CardsPageState extends State<CardsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Cards"),
-        backgroundColor: _isInHighlightMode
-            ? Theme.of(context).accentColor
-            : Theme.of(context).primaryColor,
-      ),
+      appBar: appBar(context),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Flexible(
-              child: ListView.builder(
-                controller: scrollController,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: CardListItem(
-                      frontCardText: viewModel.items[index].frontText,
-                      backCardText: viewModel.items[index].backText,
-                      isHighlighted: viewModel.items[index].isHighlighted,
-                      onPressed: () {
-                        if (_isInHighlightMode) {
-                          setState(() {
-                            viewModel.toggleHighlight(index);
-                          });
-                        } else {
-                          print("Do something else?");
-                        }
-                      },
-                      onLongPressed: () {
-                        setState(() {
-                          viewModel.toggleHighlight(index);
-                        });
-                      },
-                    ),
-                  );
-                },
-                itemCount: viewModel.count,
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                print("Bottom safe zone container tapped!");
-                setState(() {
-                  viewModel.turnOffAllHighlighted();
-                });
-              },
-              //behavior: HitTestBehavior.translucent,
-              child: Container(
-                height: 80,
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 38, top: 16),
-                  child: Text(
-                    getBottomHelpText(),
-                    style: Theme.of(context).textTheme.bodyText1,
-                  ),
-                ),
-              ), // need to actually give this a color so that it has content
-            )
-          ],
-        ),
+        child: body(),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: _isInHighlightMode
-            ? Theme.of(context).colorScheme.error
-            : Theme.of(context).accentColor,
-        child: Icon(
-          _isInHighlightMode ? Icons.delete_forever : Icons.add,
-          color: Colors.white,
-        ),
-        onPressed: () {
-          if (_isInHighlightMode) {
-            askDeleteSelected(context);
-          } else {
-            showAddCard(context);
-          }
-        },
-      ),
+      floatingActionButton: primaryButton(context),
     );
   }
 
-  void askDeleteSelected(BuildContext context) {
-    showDialog(
-        context: context,
-        builder: (context) {
-          return DeleteDialog(
-            onPositiveButtonTapped: () {
-              print("User said no");
-              Navigator.of(context).pop();
-              setState(() {
-                viewModel.turnOffAllHighlighted();
-              });
-            },
-            onNegativeButtonTapped: () {
-              Navigator.of(context).pop();
-              setState(() {
-                viewModel.deleteSelectedCards();
-              });
-            },
-          );
+  // Widget creation methods
+  AppBar appBar(BuildContext context) {
+    return AppBar(
+      title: Text("Cards"),
+      backgroundColor: _isInHighlightMode
+          ? Theme.of(context).accentColor
+          : Theme.of(context).primaryColor,
+    );
+  }
+
+  Widget body() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[cardList(), instructionText()],
+    );
+  }
+
+  Widget cardList() {
+    return CardList(
+      viewModel,
+      scrollController: scrollController,
+      onCardItemPressed: onCardItemPressed,
+      onCardItemLongPressed: onCardItemLongPressed,
+    );
+  }
+
+  Widget instructionText() {
+    return _InstructionText(
+      _getBottomHelpText(),
+      onTapped: () {
+        setState(() {
+          viewModel.turnOffAllHighlighted();
+        });
+      },
+    );
+  }
+
+  _PrimaryButton primaryButton(BuildContext context) {
+    return _PrimaryButton(
+        isInHighlightMode: _isInHighlightMode,
+        onPressed: () {
+          if (_isInHighlightMode) {
+            _askDeleteSelected(context);
+          } else {
+            _showAddCard(context);
+          }
         });
   }
 
-  String getBottomHelpText() {
+  Widget createCardPage(BuildContext context) {
+    return CreateCardPage(
+        onCancel: () => Navigator.pop(context),
+        onCreate: (result) => onCreateCard(context, result));
+  }
+
+  DeleteDialog deleteDialog(BuildContext context) {
+    return DeleteDialog(
+      onPositiveButtonTapped: () => onDeleteCancelled(context),
+      onNegativeButtonTapped: () => onDeleteAllSelected(context),
+    );
+  }
+
+  // callbacks
+  void onCardItemPressed(int index) {
+    if (_isInHighlightMode) {
+      toggleHighlight(index);
+    } else {
+      print("Do something else?");
+    }
+  }
+
+  void onCardItemLongPressed(int index) {
+    toggleHighlight(index);
+  }
+
+  void onDeleteAllSelected(BuildContext context) {
+    Navigator.of(context).pop();
+    setState(() {
+      viewModel.deleteSelectedCards();
+    });
+  }
+
+  void onDeleteCancelled(BuildContext context) {
+    Navigator.of(context).pop();
+    setState(() {
+      viewModel.turnOffAllHighlighted();
+    });
+  }
+
+
+  void onCreateCard(BuildContext context, CreateCardResult createCardResult) {
+    Navigator.pop(context);
+    createNewCard(createCardResult);
+    scrollToBottom();
+  }
+
+  void _askDeleteSelected(BuildContext context) {
+    showDialog(context: context, builder: deleteDialog);
+  }
+
+  void _showAddCard(BuildContext context) {
+    showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: createCardPage);
+  }
+
+  void createNewCard(CreateCardResult createCardResult) {
+    setState(() {
+      viewModel.createNewCard(
+          createCardResult.frontCardText, createCardResult.backCardText);
+    });
+  }
+
+  void toggleHighlight(int index) {
+    setState(() {
+      viewModel.toggleHighlight(index);
+    });
+  }
+
+  String _getBottomHelpText() {
     if (_isInHighlightMode) {
       return "Tap here to unselect everything";
     } else {
@@ -141,366 +169,59 @@ class _CardsPageState extends State<CardsPage> {
     }
   }
 
-  void showAddCard(BuildContext context) {
-    showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return CreateCard(
-            onCancel: () {
-              Navigator.pop(context);
-            },
-            onCreate: (createCardResult) {
-              Navigator.pop(context);
-
-              setState(() {
-                viewModel.createNewCard(createCardResult.frontCardText,
-                    createCardResult.backCardText);
-              });
-
-              Timer(Duration(milliseconds: 200), (){
-                setState((){
-                  scrollController.animateTo(
-                      scrollController.position.maxScrollExtent,
-                      duration: Duration(seconds: 1),
-                      curve: Curves.ease);
-                });
-              });
-            },
-          );
-        });
-  }
-}
-
-class CreateCard extends StatefulWidget {
-  final Function onCancel;
-  final ValueSetter<CreateCardResult> onCreate;
-
-  const CreateCard({
-    this.onCancel,
-    this.onCreate,
-  });
-
-  @override
-  _CreateCardState createState() => _CreateCardState();
-}
-
-class _CreateCardState extends State<CreateCard> {
-  String frontCardText;
-  bool frontCardValidationFailed;
-
-  String backCardText;
-  bool backCardValidationFailed;
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-
-    frontCardValidationFailed = false;
-    backCardValidationFailed = false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Container(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(15), topRight: Radius.circular(15))),
-          child: Text(
-            "Create a new card",
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .headline6
-                .copyWith(color: Colors.white),
-          ),
-        ),
-        Expanded(
-          child: Container(
-              color: Colors.white,
-              child: Column(
-                children: <Widget>[
-                  TextField(
-                    decoration: InputDecoration(
-                        hintText: "Front card text...",
-                        errorText: frontCardValidationFailed
-                            ? "Enter text for the front of the card"
-                            : null),
-                    onChanged: (newValue) {
-                      frontCardText = newValue;
-                    },
-                  ),
-                  TextField(
-                    decoration: InputDecoration(
-                        hintText: "Back card text...",
-                        errorText: backCardValidationFailed
-                            ? "Enter text for the back of the card"
-                            : null),
-                    onChanged: (newValue) {
-                      backCardText = newValue;
-                    },
-                  ),
-                  SizedBox(
-                    height: 16,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: <Widget>[
-                      FlatButton(
-                        onPressed: widget.onCancel,
-                        child: Icon(
-                          Icons.close,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                      FlatButton(
-                        onPressed: () {
-                          if (widget.onCreate == null) {
-                            return;
-                          }
-
-                          frontCardValidationFailed = false;
-                          backCardValidationFailed = false;
-
-                          if (frontCardText == null ||
-                              frontCardText.trim().isEmpty) {
-                            frontCardValidationFailed = true;
-                          }
-
-                          if (backCardText == null ||
-                              backCardText.trim().isEmpty) {
-                            backCardValidationFailed = true;
-                          }
-
-                          if (frontCardValidationFailed ||
-                              backCardValidationFailed) {
-                            setState(() {});
-                            return;
-                          }
-
-                          widget.onCreate(CreateCardResult(
-                              frontCardText: frontCardText,
-                              backCardText: backCardText));
-                        },
-                        child: Icon(
-                          Icons.check,
-                          color: Theme.of(context).accentColor,
-                        ),
-                      )
-                    ],
-                  )
-                ],
-              )),
-        )
-      ],
-    );
-  }
-}
-
-class CreateCardResult {
-  final String frontCardText;
-  final String backCardText;
-
-  CreateCardResult({@required this.frontCardText, @required this.backCardText});
-}
-
-class CardListItem extends StatelessWidget {
-  final String frontCardText;
-  final String backCardText;
-  final Function onPressed;
-  final Function onLongPressed;
-  final bool isHighlighted;
-
-  const CardListItem(
-      {this.frontCardText,
-      this.backCardText,
-      this.isHighlighted,
-      this.onPressed,
-      this.onLongPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 32.0),
-      child: FlatButton(
-        child: Ink(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Flexible(
-                flex: 5,
-                child: Text(
-                  frontCardText ?? "",
-                  style: TextStyle(
-                      color: Theme.of(context).primaryColor, fontSize: 18),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-              Flexible(
-                flex: 1,
-                child: SizedBox(
-                  width: 10,
-                ),
-              ),
-              Flexible(
-                flex: 5,
-                child: Text(
-                  backCardText ?? "",
-                  style: TextStyle(
-                      color: Theme.of(context).primaryColorDark, fontSize: 18),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              )
-            ],
-          ),
-          padding: EdgeInsets.all(32),
-          decoration: BoxDecoration(
-              gradient: LinearGradient(colors: <Color>[
-                Colors.white,
-                Colors.grey.shade200,
-              ]),
-              border: Border(
-                  left: BorderSide(
-                      color: isHighlighted
-                          ? Theme.of(context).accentColor
-                          : Theme.of(context).primaryColor,
-                      width: 8))),
-        ),
-        disabledColor: Colors.transparent,
-        padding: EdgeInsets.zero,
-        onPressed: () {
-          print("List item pressed");
-          if (onPressed != null) {
-            onPressed();
-          }
-        },
-        onLongPress: () {
-          if (onLongPressed != null) {
-            onLongPressed();
-          }
-        },
-      ),
-    );
-  }
-}
-
-class CardListViewModel {
-  List<CardListItemViewModel> _items = [
-    CardListItemViewModel(
-        Card(frontText: "Apa kabar?", backText: "How are you?")),
-    CardListItemViewModel(Card(frontText: "Kabar", backText: "News")),
-    CardListItemViewModel(Card(frontText: "Banyak", backText: "Many")),
-    CardListItemViewModel(
-        Card(frontText: "Apa kabar?", backText: "How are you?")),
-    CardListItemViewModel(Card(frontText: "Kabar", backText: "News")),
-    CardListItemViewModel(Card(frontText: "Banyak", backText: "Many")),
-    CardListItemViewModel(
-        Card(frontText: "Apa kabar?", backText: "How are you?")),
-    CardListItemViewModel(Card(frontText: "Kabar", backText: "News")),
-    CardListItemViewModel(Card(frontText: "Banyak", backText: "Many")),
-    CardListItemViewModel(
-        Card(frontText: "Apa kabar?", backText: "How are you?")),
-    CardListItemViewModel(Card(frontText: "Kabar", backText: "News")),
-    CardListItemViewModel(Card(frontText: "Banyak", backText: "Many")),
-    CardListItemViewModel(
-        Card(frontText: "Apa kabar?", backText: "How are you?")),
-    CardListItemViewModel(Card(frontText: "Kabar", backText: "News")),
-    CardListItemViewModel(Card(frontText: "Banyak", backText: "Many")),
-  ];
-
-  int get count => _items.length;
-  List<CardListItemViewModel> get items => List.unmodifiable(_items);
-
-  void toggleHighlight(int index) {
-    if (index >= count) {
-      return;
-    }
-    _items[index].isHighlighted = !_items[index].isHighlighted;
-  }
-
-  bool areAnyCardsHighlighted() {
-    return _items.any((element) => element.isHighlighted);
-  }
-
-  void turnOffAllHighlighted() {
-    _items.forEach((element) {
-      element.isHighlighted = false;
+  void scrollToBottom() {
+    Timer(Duration(milliseconds: 200), () {
+      setState(() {
+        scrollController.animateTo(scrollController.position.maxScrollExtent,
+            duration: Duration(seconds: 1), curve: Curves.ease);
+      });
     });
   }
-
-  void deleteSelectedCards() {
-    _items.removeWhere((element) => element.isHighlighted);
-  }
-
-  void createNewCard(String frontText, String backText) {
-    _items.add(
-        CardListItemViewModel(Card(frontText: frontText, backText: backText)));
-  }
 }
 
-class CardListItemViewModel {
-  final Card _card;
-  bool isHighlighted = false;
+// Private widgets
+class _InstructionText extends StatelessWidget {
+  final Function onTapped;
+  final String text;
 
-  String get frontText => _card.frontText;
-  String get backText => _card.backText;
-
-  CardListItemViewModel(this._card);
-}
-
-class Card {
-  final String frontText;
-  final String backText;
-
-  Card({@required this.frontText, @required this.backText});
-}
-
-class DeleteDialog extends StatelessWidget {
-  final Function onPositiveButtonTapped;
-  final Function onNegativeButtonTapped;
-
-  const DeleteDialog(
-      {this.onPositiveButtonTapped, this.onNegativeButtonTapped});
+  const _InstructionText(this.text, {this.onTapped});
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-        title: Container(
-          color: Theme.of(context).colorScheme.error,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Delete',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
+    return GestureDetector(
+      onTap: onTapped,
+      child: Container(
+        height: 80,
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 38, top: 16),
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyText1,
           ),
         ),
-        content: Text(
-          'Delete selected cards?',
-        ),
-        actions: <Widget>[
-          FlatButton(
-            onPressed: onPositiveButtonTapped,
-            child: Text("Cancel"),
-          ),
-          FlatButton(
-            onPressed: onNegativeButtonTapped,
-            child: Text(
-              "Delete",
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          )
-        ],
-        titlePadding: EdgeInsets.zero);
+      ), // need to actually give this a color so that it has content
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final bool isInHighlightMode;
+  final Function onPressed;
+
+  const _PrimaryButton({this.isInHighlightMode, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      backgroundColor: isInHighlightMode
+          ? Theme.of(context).colorScheme.error
+          : Theme.of(context).accentColor,
+      child: Icon(
+        isInHighlightMode ? Icons.delete_forever : Icons.add,
+        color: Colors.white,
+      ),
+      onPressed: onPressed,
+    );
   }
 }
